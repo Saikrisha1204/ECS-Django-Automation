@@ -1,0 +1,304 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ECS Django Multi App Stack - FINAL WORKING
+
+Resources:
+
+#################################
+# ECS Cluster
+#################################
+
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: django-multiapp-cluster
+
+
+#################################
+# Security Groups
+#################################
+
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ALB Security Group
+      VpcId: vpc-049a82deccebf6ed3
+
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+
+  ECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ECS Security Group
+      VpcId: vpc-049a82deccebf6ed3
+
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8000
+          ToPort: 8000
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+
+#################################
+# Load Balancer
+#################################
+
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: django-alb-automate
+      Scheme: internet-facing
+      Type: application
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+      Subnets:
+        - subnet-06e07a4efa839d3ff
+        - subnet-06b9d3b97a8816646
+        - subnet-0f18488b59b783d2d
+
+
+#################################
+# Target Groups
+#################################
+
+  App1TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: app1-tg-automate
+      Port: 8000
+      Protocol: HTTP
+      TargetType: ip
+      VpcId: vpc-049a82deccebf6ed3
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+
+
+  App2TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: app2-tg-automate
+      Port: 8000
+      Protocol: HTTP
+      TargetType: ip
+      VpcId: vpc-049a82deccebf6ed3
+      HealthCheckPath: /app1/
+      HealthCheckProtocol: HTTP
+
+
+  App3TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: app3-tg-automate
+      Port: 8000
+      Protocol: HTTP
+      TargetType: ip
+      VpcId: vpc-049a82deccebf6ed3
+      HealthCheckPath: /app2/
+      HealthCheckProtocol: HTTP
+
+
+#################################
+# Listener
+#################################
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref App1TargetGroup
+
+
+#################################
+# Listener Rules (FIXED SYNTAX)
+#################################
+
+  App2Rule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    DependsOn: Listener
+    Properties:
+      ListenerArn: !Ref Listener
+      Priority: 10
+      Conditions:
+        - Field: path-pattern
+          PathPatternConfig:
+            Values:
+              - /app1*
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref App2TargetGroup
+
+
+  App3Rule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    DependsOn: Listener
+    Properties:
+      ListenerArn: !Ref Listener
+      Priority: 20
+      Conditions:
+        - Field: path-pattern
+          PathPatternConfig:
+            Values:
+              - /app2*
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref App3TargetGroup
+
+
+#################################
+# Task Definitions
+#################################
+
+  App1TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: app1_task
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      Cpu: 256
+      Memory: 512
+      ExecutionRoleArn: arn:aws:iam::000087383875:role/ecsTaskExecutionRole
+      ContainerDefinitions:
+        - Name: app1
+          Image: 000087383875.dkr.ecr.us-east-1.amazonaws.com/app1:latest
+          PortMappings:
+            - ContainerPort: 8000
+
+
+  App2TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: app2_task
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      Cpu: 256
+      Memory: 512
+      ExecutionRoleArn: arn:aws:iam::000087383875:role/ecsTaskExecutionRole
+      ContainerDefinitions:
+        - Name: app2
+          Image: 000087383875.dkr.ecr.us-east-1.amazonaws.com/app2:latest
+          PortMappings:
+            - ContainerPort: 8000
+
+
+  App3TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: app3_task
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      Cpu: 256
+      Memory: 512
+      ExecutionRoleArn: arn:aws:iam::000087383875:role/ecsTaskExecutionRole
+      ContainerDefinitions:
+        - Name: app3
+          Image: 000087383875.dkr.ecr.us-east-1.amazonaws.com/app3:latest
+          PortMappings:
+            - ContainerPort: 8000
+
+
+#################################
+# ECS Services
+#################################
+
+  App1Service:
+    Type: AWS::ECS::Service
+    DependsOn: Listener
+    Properties:
+      ServiceName: app1-service
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref App1TaskDefinition
+      LaunchType: FARGATE
+      DesiredCount: 1
+
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets:
+            - subnet-06e07a4efa839d3ff
+            - subnet-06b9d3b97a8816646
+            - subnet-0f18488b59b783d2d
+          SecurityGroups:
+            - !Ref ECSSecurityGroup
+
+      LoadBalancers:
+        - ContainerName: app1
+          ContainerPort: 8000
+          TargetGroupArn: !Ref App1TargetGroup
+
+
+  App2Service:
+    Type: AWS::ECS::Service
+    DependsOn: Listener
+    Properties:
+      ServiceName: app2-service
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref App2TaskDefinition
+      LaunchType: FARGATE
+      DesiredCount: 1
+
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets:
+            - subnet-06e07a4efa839d3ff
+            - subnet-06b9d3b97a8816646
+            - subnet-0f18488b59b783d2d
+          SecurityGroups:
+            - !Ref ECSSecurityGroup
+
+      LoadBalancers:
+        - ContainerName: app2
+          ContainerPort: 8000
+          TargetGroupArn: !Ref App2TargetGroup
+
+
+  App3Service:
+    Type: AWS::ECS::Service
+    DependsOn: Listener
+    Properties:
+      ServiceName: app3-service
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref App3TaskDefinition
+      LaunchType: FARGATE
+      DesiredCount: 1
+
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets:
+            - subnet-06e07a4efa839d3ff
+            - subnet-06b9d3b97a8816646
+            - subnet-0f18488b59b783d2d
+          SecurityGroups:
+            - !Ref ECSSecurityGroup
+
+      LoadBalancers:
+        - ContainerName: app3
+          ContainerPort: 8000
+          TargetGroupArn: !Ref App3TargetGroup
+
+
+#################################
+# Outputs
+#################################
+
+Outputs:
+
+  LoadBalancerDNS:
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
