@@ -10,9 +10,9 @@ app3
 
 Example:
 
-aws ecr create-repository --repository-name app1
-aws ecr create-repository --repository-name app2
-aws ecr create-repository --repository-name app3
+aws ecr create-repository --repository-name app1(for app1)
+aws ecr create-repository --repository-name app2(for app2)
+aws ecr create-repository --repository-name app3(for app3)
 
 ## Push images
 
@@ -37,3 +37,4 @@ python scripts/create_stack.py
 http://<ALB-DNS>
 http://<ALB-DNS>/app1/
 http://<ALB-DNS>/app2/
+
