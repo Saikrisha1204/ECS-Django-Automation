@@ -1,5 +1,32 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: ECS Django Multi App Stack - FINAL WORKING
+Description: ECS Django Multi App Stack 
+
+#################################
+# PARAMETERS
+#################################
+
+Parameters:
+
+  VPCId:
+    Type: AWS::EC2::VPC::Id
+    Description: Select your VPC
+
+  Subnet1:
+    Type: AWS::EC2::Subnet::Id
+    Description: Select Subnet 1
+
+  Subnet2:
+    Type: AWS::EC2::Subnet::Id
+    Description: Select Subnet 2
+
+  Subnet3:
+    Type: AWS::EC2::Subnet::Id
+    Description: Select Subnet 3
+
+
+#################################
+# RESOURCES
+#################################
 
 Resources:
 
@@ -21,7 +48,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: ALB Security Group
-      VpcId: vpc-049a82deccebf6ed3
+      VpcId: !Ref VPCId
 
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -38,7 +65,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: ECS Security Group
-      VpcId: vpc-049a82deccebf6ed3
+      VpcId: !Ref VPCId
 
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -64,9 +91,9 @@ Resources:
       SecurityGroups:
         - !Ref ALBSecurityGroup
       Subnets:
-        - subnet-06e07a4efa839d3ff
-        - subnet-06b9d3b97a8816646
-        - subnet-0f18488b59b783d2d
+        - !Ref Subnet1
+        - !Ref Subnet2
+        - !Ref Subnet3
 
 
 #################################
@@ -80,7 +107,7 @@ Resources:
       Port: 8000
       Protocol: HTTP
       TargetType: ip
-      VpcId: vpc-049a82deccebf6ed3
+      VpcId: !Ref VPCId
       HealthCheckPath: /
       HealthCheckProtocol: HTTP
 
@@ -92,7 +119,7 @@ Resources:
       Port: 8000
       Protocol: HTTP
       TargetType: ip
-      VpcId: vpc-049a82deccebf6ed3
+      VpcId: !Ref VPCId
       HealthCheckPath: /app1/
       HealthCheckProtocol: HTTP
 
@@ -104,7 +131,7 @@ Resources:
       Port: 8000
       Protocol: HTTP
       TargetType: ip
-      VpcId: vpc-049a82deccebf6ed3
+      VpcId: !Ref VPCId
       HealthCheckPath: /app2/
       HealthCheckProtocol: HTTP
 
@@ -125,7 +152,7 @@ Resources:
 
 
 #################################
-# Listener Rules (FIXED SYNTAX)
+# Listener Rules
 #################################
 
   App2Rule:
@@ -169,7 +196,8 @@ Resources:
     Properties:
       Family: app1_task
       NetworkMode: awsvpc
-      RequiresCompatibilities: [FARGATE]
+      RequiresCompatibilities:
+        - FARGATE
       Cpu: 256
       Memory: 512
       ExecutionRoleArn: arn:aws:iam::000087383875:role/ecsTaskExecutionRole
@@ -185,7 +213,8 @@ Resources:
     Properties:
       Family: app2_task
       NetworkMode: awsvpc
-      RequiresCompatibilities: [FARGATE]
+      RequiresCompatibilities:
+        - FARGATE
       Cpu: 256
       Memory: 512
       ExecutionRoleArn: arn:aws:iam::000087383875:role/ecsTaskExecutionRole
@@ -201,7 +230,8 @@ Resources:
     Properties:
       Family: app3_task
       NetworkMode: awsvpc
-      RequiresCompatibilities: [FARGATE]
+      RequiresCompatibilities:
+        - FARGATE
       Cpu: 256
       Memory: 512
       ExecutionRoleArn: arn:aws:iam::000087383875:role/ecsTaskExecutionRole
@@ -230,9 +260,9 @@ Resources:
         AwsvpcConfiguration:
           AssignPublicIp: ENABLED
           Subnets:
-            - subnet-06e07a4efa839d3ff
-            - subnet-06b9d3b97a8816646
-            - subnet-0f18488b59b783d2d
+            - !Ref Subnet1
+            - !Ref Subnet2
+            - !Ref Subnet3
           SecurityGroups:
             - !Ref ECSSecurityGroup
 
@@ -256,9 +286,9 @@ Resources:
         AwsvpcConfiguration:
           AssignPublicIp: ENABLED
           Subnets:
-            - subnet-06e07a4efa839d3ff
-            - subnet-06b9d3b97a8816646
-            - subnet-0f18488b59b783d2d
+            - !Ref Subnet1
+            - !Ref Subnet2
+            - !Ref Subnet3
           SecurityGroups:
             - !Ref ECSSecurityGroup
 
@@ -282,9 +312,9 @@ Resources:
         AwsvpcConfiguration:
           AssignPublicIp: ENABLED
           Subnets:
-            - subnet-06e07a4efa839d3ff
-            - subnet-06b9d3b97a8816646
-            - subnet-0f18488b59b783d2d
+            - !Ref Subnet1
+            - !Ref Subnet2
+            - !Ref Subnet3
           SecurityGroups:
             - !Ref ECSSecurityGroup
 
@@ -301,4 +331,6 @@ Resources:
 Outputs:
 
   LoadBalancerDNS:
+    Description: DNS of Application Load Balancer
     Value: !GetAtt ApplicationLoadBalancer.DNSName
+
