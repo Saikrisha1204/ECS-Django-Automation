@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: ECS Django Multi App Stack 
+Description: ECS Django Multi App Stack
 
 #################################
 # PARAMETERS
@@ -41,7 +41,7 @@ Resources:
 
 
 #################################
-# Security Groups
+# SECURITY GROUPS
 #################################
 
   ALBSecurityGroup:
@@ -79,7 +79,7 @@ Resources:
 
 
 #################################
-# Load Balancer
+# LOAD BALANCER
 #################################
 
   ApplicationLoadBalancer:
@@ -88,8 +88,10 @@ Resources:
       Name: django-alb-automate
       Scheme: internet-facing
       Type: application
+
       SecurityGroups:
         - !Ref ALBSecurityGroup
+
       Subnets:
         - !Ref Subnet1
         - !Ref Subnet2
@@ -97,7 +99,7 @@ Resources:
 
 
 #################################
-# Target Groups
+# TARGET GROUPS
 #################################
 
   App1TargetGroup:
@@ -137,7 +139,7 @@ Resources:
 
 
 #################################
-# Listener
+# LISTENER
 #################################
 
   Listener:
@@ -146,26 +148,28 @@ Resources:
       LoadBalancerArn: !Ref ApplicationLoadBalancer
       Port: 80
       Protocol: HTTP
+
       DefaultActions:
         - Type: forward
           TargetGroupArn: !Ref App1TargetGroup
 
 
 #################################
-# Listener Rules
+# LISTENER RULES
 #################################
 
   App2Rule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
-    DependsOn: Listener
     Properties:
       ListenerArn: !Ref Listener
       Priority: 10
+
       Conditions:
         - Field: path-pattern
           PathPatternConfig:
             Values:
               - /app1*
+
       Actions:
         - Type: forward
           TargetGroupArn: !Ref App2TargetGroup
@@ -173,22 +177,23 @@ Resources:
 
   App3Rule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
-    DependsOn: Listener
     Properties:
       ListenerArn: !Ref Listener
       Priority: 20
+
       Conditions:
         - Field: path-pattern
           PathPatternConfig:
             Values:
               - /app2*
+
       Actions:
         - Type: forward
           TargetGroupArn: !Ref App3TargetGroup
 
 
 #################################
-# Task Definitions
+# TASK DEFINITIONS
 #################################
 
   App1TaskDefinition:
@@ -196,14 +201,21 @@ Resources:
     Properties:
       Family: app1_task
       NetworkMode: awsvpc
+
       RequiresCompatibilities:
         - FARGATE
+
       Cpu: 256
       Memory: 512
-      ExecutionRoleArn: arn:aws:iam::000087383875:role/ecsTaskExecutionRole
+
+      ExecutionRoleArn:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/ecsTaskExecutionRole
+
       ContainerDefinitions:
         - Name: app1
-          Image: 000087383875.dkr.ecr.us-east-1.amazonaws.com/app1:latest
+          Image:
+            Fn::Sub: ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/app1:latest
+
           PortMappings:
             - ContainerPort: 8000
 
@@ -213,14 +225,21 @@ Resources:
     Properties:
       Family: app2_task
       NetworkMode: awsvpc
+
       RequiresCompatibilities:
         - FARGATE
+
       Cpu: 256
       Memory: 512
-      ExecutionRoleArn: arn:aws:iam::000087383875:role/ecsTaskExecutionRole
+
+      ExecutionRoleArn:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/ecsTaskExecutionRole
+
       ContainerDefinitions:
         - Name: app2
-          Image: 000087383875.dkr.ecr.us-east-1.amazonaws.com/app2:latest
+          Image:
+            Fn::Sub: ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/app2:latest
+
           PortMappings:
             - ContainerPort: 8000
 
@@ -230,39 +249,53 @@ Resources:
     Properties:
       Family: app3_task
       NetworkMode: awsvpc
+
       RequiresCompatibilities:
         - FARGATE
+
       Cpu: 256
       Memory: 512
-      ExecutionRoleArn: arn:aws:iam::000087383875:role/ecsTaskExecutionRole
+
+      ExecutionRoleArn:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/ecsTaskExecutionRole
+
       ContainerDefinitions:
         - Name: app3
-          Image: 000087383875.dkr.ecr.us-east-1.amazonaws.com/app3:latest
+          Image:
+            Fn::Sub: ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/app3:latest
+
           PortMappings:
             - ContainerPort: 8000
 
 
 #################################
-# ECS Services
+# ECS SERVICES
 #################################
 
   App1Service:
     Type: AWS::ECS::Service
     DependsOn: Listener
+
     Properties:
       ServiceName: app1-service
       Cluster: !Ref ECSCluster
+
       TaskDefinition: !Ref App1TaskDefinition
+
       LaunchType: FARGATE
+
       DesiredCount: 1
 
       NetworkConfiguration:
         AwsvpcConfiguration:
+
           AssignPublicIp: ENABLED
+
           Subnets:
             - !Ref Subnet1
             - !Ref Subnet2
             - !Ref Subnet3
+
           SecurityGroups:
             - !Ref ECSSecurityGroup
 
@@ -275,20 +308,27 @@ Resources:
   App2Service:
     Type: AWS::ECS::Service
     DependsOn: Listener
+
     Properties:
       ServiceName: app2-service
       Cluster: !Ref ECSCluster
+
       TaskDefinition: !Ref App2TaskDefinition
+
       LaunchType: FARGATE
+
       DesiredCount: 1
 
       NetworkConfiguration:
         AwsvpcConfiguration:
+
           AssignPublicIp: ENABLED
+
           Subnets:
             - !Ref Subnet1
             - !Ref Subnet2
             - !Ref Subnet3
+
           SecurityGroups:
             - !Ref ECSSecurityGroup
 
@@ -301,20 +341,27 @@ Resources:
   App3Service:
     Type: AWS::ECS::Service
     DependsOn: Listener
+
     Properties:
       ServiceName: app3-service
       Cluster: !Ref ECSCluster
+
       TaskDefinition: !Ref App3TaskDefinition
+
       LaunchType: FARGATE
+
       DesiredCount: 1
 
       NetworkConfiguration:
         AwsvpcConfiguration:
+
           AssignPublicIp: ENABLED
+
           Subnets:
             - !Ref Subnet1
             - !Ref Subnet2
             - !Ref Subnet3
+
           SecurityGroups:
             - !Ref ECSSecurityGroup
 
@@ -325,12 +372,11 @@ Resources:
 
 
 #################################
-# Outputs
+# OUTPUTS
 #################################
 
 Outputs:
 
   LoadBalancerDNS:
-    Description: DNS of Application Load Balancer
+    Description: Load Balancer DNS Name
     Value: !GetAtt ApplicationLoadBalancer.DNSName
-
