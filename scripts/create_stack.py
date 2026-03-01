@@ -4,10 +4,25 @@ STACK_NAME = "django-multiapp-stack"
 
 cf = boto3.client("cloudformation")
 ec2 = boto3.client("ec2")
+sts = boto3.client("sts")
 
-# Read template
-with open("../cloudformation/template.yaml", "r") as f:
-    template_body = f.read()
+
+# Get AWS Account ID dynamically
+def get_account_id():
+    response = sts.get_caller_identity()
+    return response["Account"]
+
+
+# Read template and replace account id dynamically
+def get_template():
+    account_id = get_account_id()
+
+    with open("../cloudformation/template.yaml", "r") as f:
+        template = f.read()
+
+    template = template.replace("ACCOUNT_ID", account_id)
+
+    return template
 
 
 # Get default VPC
@@ -18,12 +33,16 @@ def get_default_vpc():
     return response["Vpcs"][0]["VpcId"]
 
 
-# Get 3 subnets from VPC
+# Get 3 subnets
 def get_subnets(vpc_id):
     response = ec2.describe_subnets(
         Filters=[{"Name": "vpc-id", "Values": [vpc_id]}]
     )
     subnets = [subnet["SubnetId"] for subnet in response["Subnets"]]
+
+    if len(subnets) < 3:
+        raise Exception("Minimum 3 subnets required")
+
     return subnets[:3]
 
 
@@ -38,6 +57,8 @@ def stack_exists(stack_name):
 
 # Create stack
 def create_stack():
+
+    template_body = get_template()
 
     vpc_id = get_default_vpc()
     subnets = get_subnets(vpc_id)
@@ -62,6 +83,8 @@ def create_stack():
 # Update stack
 def update_stack():
 
+    template_body = get_template()
+
     vpc_id = get_default_vpc()
     subnets = get_subnets(vpc_id)
 
@@ -82,7 +105,7 @@ def update_stack():
     print("Stack update started:", response["StackId"])
 
 
-# Main logic
+# Main
 if stack_exists(STACK_NAME):
     update_stack()
 else:
